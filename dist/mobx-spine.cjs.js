@@ -79,6 +79,12 @@ function forNestedRelations(model, nestedRelations, fn) {
     });
 }
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) {
+  return typeof obj;
+} : function (obj) {
+  return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+};
+
 var classCallCheck = function (instance, Constructor) {
   if (!(instance instanceof Constructor)) {
     throw new TypeError("Cannot call a class as a function");
@@ -143,6 +149,44 @@ var objectWithoutProperties = function (obj, keys) {
 
   return target;
 };
+
+var slicedToArray = function () {
+  function sliceIterator(arr, i) {
+    var _arr = [];
+    var _n = true;
+    var _d = false;
+    var _e = undefined;
+
+    try {
+      for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+        _arr.push(_s.value);
+
+        if (i && _arr.length === i) break;
+      }
+    } catch (err) {
+      _d = true;
+      _e = err;
+    } finally {
+      try {
+        if (!_n && _i["return"]) _i["return"]();
+      } finally {
+        if (_d) throw _e;
+      }
+    }
+
+    return _arr;
+  }
+
+  return function (arr, i) {
+    if (Array.isArray(arr)) {
+      return arr;
+    } else if (Symbol.iterator in Object(arr)) {
+      return sliceIterator(arr, i);
+    } else {
+      throw new TypeError("Invalid attempt to destructure non-iterable instance");
+    }
+  };
+}();
 
 var _class, _descriptor, _descriptor2, _descriptor3, _descriptor4, _descriptor5, _class2, _temp;
 
@@ -1807,6 +1851,48 @@ function csrfSafeMethod(method) {
     );
 }
 
+function escapeKey(key) {
+    return key.toString().replace(/([.\\])/g, '\\$1');
+}
+
+function extractFiles(data) {
+    var prefix = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+
+    var keys = Array.isArray(data) ? lodash.range(data.length) : (typeof data === 'undefined' ? 'undefined' : _typeof(data)) === 'object' && data !== null ? Object.keys(data) : [];
+    var files = {};
+    var _iteratorNormalCompletion = true;
+    var _didIteratorError = false;
+    var _iteratorError = undefined;
+
+    try {
+        for (var _iterator = keys[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+            var key = _step.value;
+
+            if (data[key] instanceof Blob) {
+                files[prefix + escapeKey(key)] = data[key];
+                data[key] = null;
+            } else if (_typeof(data[key]) === 'object' && data[key] !== null) {
+                Object.assign(files, extractFiles(data[key], prefix + escapeKey(key) + '.'));
+            }
+        }
+    } catch (err) {
+        _didIteratorError = true;
+        _iteratorError = err;
+    } finally {
+        try {
+            if (!_iteratorNormalCompletion && _iterator.return) {
+                _iterator.return();
+            }
+        } finally {
+            if (_didIteratorError) {
+                throw _iteratorError;
+            }
+        }
+    }
+
+    return files;
+}
+
 var BinderApi = function () {
     function BinderApi() {
         classCallCheck(this, BinderApi);
@@ -1860,6 +1946,42 @@ var BinderApi = function () {
                 'X-Csrftoken': useCsrfToken
             }, this.defaultHeaders, options.headers);
             axiosOptions.headers = headers;
+
+            if (axiosOptions.data && !(axiosOptions.data instanceof Blob) && !(axiosOptions.data instanceof FormData)) {
+                var files = extractFiles(axiosOptions.data);
+                if (Object.keys(files).length > 0) {
+                    var _data = new FormData();
+                    _data.append('data', JSON.stringify(axiosOptions.data));
+                    var _iteratorNormalCompletion2 = true;
+                    var _didIteratorError2 = false;
+                    var _iteratorError2 = undefined;
+
+                    try {
+                        for (var _iterator2 = Object.entries(files)[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+                            var _step2$value = slicedToArray(_step2.value, 2),
+                                path = _step2$value[0],
+                                file = _step2$value[1];
+
+                            _data.append('file:' + path, file, file.name);
+                        }
+                    } catch (err) {
+                        _didIteratorError2 = true;
+                        _iteratorError2 = err;
+                    } finally {
+                        try {
+                            if (!_iteratorNormalCompletion2 && _iterator2.return) {
+                                _iterator2.return();
+                            }
+                        } finally {
+                            if (_didIteratorError2) {
+                                throw _iteratorError2;
+                            }
+                        }
+                    }
+
+                    axiosOptions.data = _data;
+                }
+            }
 
             var xhr = this.axios(axiosOptions);
 
